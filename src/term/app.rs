@@ -1,4 +1,4 @@
-use crate::types::Log;
+use crate::types::SharedLog;
 
 enum Dir {
     Left,
@@ -7,16 +7,18 @@ enum Dir {
 
 pub struct App {
     pub should_quit: bool,
-    logs: Vec<Log>,
+    logs: Vec<SharedLog>,
     cursor: Dir,
 }
 
 impl App {
-    pub fn new(logs: Vec<Log>) -> Self {
-        Self { should_quit: false, logs, cursor: Dir::Left }
+    pub fn new(logs: Vec<SharedLog>) -> Self {
+        Self {
+            should_quit: false,
+            logs,
+            cursor: Dir::Left,
+        }
     }
 
-    pub fn tick(&self) {
-
-    }
+    pub fn tick(&self) {}
 }

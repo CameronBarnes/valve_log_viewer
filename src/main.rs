@@ -1,4 +1,5 @@
 use anyhow::Result;
+use clap::Parser;
 use ratatui::{backend::CrosstermBackend, Terminal};
 use term::{app::App, event::EventHandler, tui::Tui, update::handle_keys};
 
@@ -6,8 +7,14 @@ mod parser;
 mod term;
 mod types;
 
+#[derive(Parser)]
+#[command(version, about, long_about = None)]
+pub struct Args {
+    files: Vec<String>,
+}
+
 fn main() -> Result<()> {
-    println!("Hello, world!");
+    let args = Args::parse();
 
     // Init term ui
     let backend = CrosstermBackend::new(std::io::stderr());
