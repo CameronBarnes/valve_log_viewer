@@ -15,4 +15,8 @@ impl App {
     pub fn new(logs: Vec<Log>) -> Self {
         Self { should_quit: false, logs, cursor: Dir::Left }
     }
+
+    pub fn tick(&self) {
+
+    }
 }
