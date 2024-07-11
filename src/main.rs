@@ -18,8 +18,8 @@ mod types;
 pub struct Args {
     #[arg(short, long, default_value = "txt")]
     extension: String,
-    #[arg(value_delimiter = ' ', num_args = 1..)]
-    files: Vec<String>,
+    #[arg(num_args = 1..)]
+    files: Vec<PathBuf>,
 }
 
 fn main() -> Result<()> {
@@ -33,8 +33,7 @@ fn main() -> Result<()> {
     let (logs, paths): (Vec<SharedLog>, Vec<PathBuf>) = args
         .files
         .iter()
-        .flat_map(|path| parse_file_path(path, &args.extension))
-        .flatten()
+        .flat_map(|path| parse_file_path(path, &args.extension).unwrap())
         .map(|(log, path)| {
             // Read the existing contents of the file into the log
             let log_new = log.clone();

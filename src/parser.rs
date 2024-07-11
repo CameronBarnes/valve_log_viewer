@@ -15,6 +15,7 @@ static CACHE: Mutex<Vec<Arc<str>>> = Mutex::new(Vec::new());
 /// If 'input' is present in the cache then return a copy of that Arc, otherwise create and add a
 /// new one to the cache
 fn get_level(input: &str) -> Arc<str> {
+    let input = format!("{:^9}", input);
     let mut cache = CACHE.lock().unwrap();
     if let Some(out) = cache.iter().find(|item| input.eq_ignore_ascii_case(item)) {
         out.clone()
@@ -33,14 +34,14 @@ pub fn get_levels() -> Vec<Arc<str>> {
 /// Parse a log entry into an `Entry` object with timestamp, level, and data
 fn parse(log_line: [&str; 3]) -> Result<Entry> {
     static TIME_RE: Lazy<Regex> =
-        Lazy::new(|| Regex::new(r#"(\d{2}):(\d{2}):(\d{2}):(\d+)"#).unwrap());
+        Lazy::new(|| Regex::new(r#"(\d{2}):(\d{2}):(\d{2}).(\d+)"#).unwrap());
     let (timestamp, level, data) = log_line.into();
     // Split the timestamp into date and time separately
     let (date, time) = timestamp
         .split_once(' ') // We dont need the day of the week so we're discarding it here
         .ok_or(anyhow!("Failed to split timestamp"))?
         .1
-        .split_at(11); // This is where we split the time and date
+        .split_at(12); // This is where we split the time and date
                        // Use regex to parse out the components from the time portion of the timestamp
     let (hour, min, sec, micro) = TIME_RE
         .captures(time)
@@ -58,7 +59,7 @@ fn parse(log_line: [&str; 3]) -> Result<Entry> {
     );
     // First we let the parse_from_str function parse the date from the date string, then we add on
     // the time component from the parts we got with the regex
-    let timestamp = NaiveDate::parse_from_str(date, "%b %d %Y")?
+    let timestamp = NaiveDate::parse_from_str(date.trim(), "%b %d %Y")?
         .and_hms_micro_opt(hour, min, sec, micro)
         .ok_or(anyhow!("Failed to build DateTime object"))?;
 
@@ -104,12 +105,14 @@ pub fn parse_file_path<T: Into<PathBuf>>(
             ))),
             path,
         )])
-    } else {
+    } else if path.is_dir() {
         Ok(path
             .read_dir()?
             .flatten()
             .flat_map(|entry| parse_file_path(entry.path(), extension))
             .flatten()
             .collect())
+    } else {
+        Ok(vec![])
     }
 }

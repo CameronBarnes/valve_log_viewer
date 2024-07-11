@@ -1,12 +1,30 @@
-use std::sync::{Arc, Mutex};
+use std::{
+    ops::Deref,
+    sync::{Arc, Mutex},
+};
 
 use chrono::NaiveDateTime;
-use ratatui::widgets::ListState;
+use itertools::Itertools;
+use ratatui::{
+    style::Stylize,
+    text::{Line, Span, ToSpan},
+    widgets::{Block, Borders, List, ListItem, ListState},
+};
 
 use anyhow::{anyhow, Result};
 
 pub type SharedLog = Arc<Mutex<Log>>;
 
+fn log_level_to_span(level: &Arc<str>) -> Span {
+    let span = level.to_span();
+    match level.deref() {
+        " Warning " => span.black().on_light_yellow(),
+        "  Error  " => span.black().on_light_red(),
+        _ => span.on_dark_gray(),
+    }
+}
+
+#[derive(Debug)]
 pub struct Entry {
     timestamp: NaiveDateTime,
     level: Arc<str>,
@@ -18,8 +36,8 @@ impl Entry {
         &self.timestamp
     }
 
-    pub fn log_level(&self) -> Arc<str> {
-        self.level.clone()
+    pub fn log_level(&self) -> &str {
+        self.level.deref()
     }
 
     pub fn log_data(&self) -> &str {
@@ -27,10 +45,29 @@ impl Entry {
     }
 
     pub(crate) fn new(timestamp: NaiveDateTime, level: Arc<str>, data: &str) -> Self {
-        Self { timestamp, level, data: data.to_string() }
+        Self {
+            timestamp,
+            level,
+            data: data.to_string(),
+        }
+    }
+
+    pub fn as_list_item(&self) -> ListItem {
+        let mut data = self.data.lines();
+        let mut out_lines = Vec::with_capacity(data.clone().count());
+        out_lines.push(Line::from(vec![
+            self.timestamp().to_span().black().on_dark_gray(),
+            log_level_to_span(&self.level),
+            Span::from(data.next().unwrap()),
+        ]));
+
+        data.for_each(|line| out_lines.push(Line::from(line)));
+
+        ListItem::new(out_lines)
     }
 }
 
+#[derive(Debug)]
 pub struct Log {
     name: String,
     entries: Vec<Entry>,
@@ -39,7 +76,11 @@ pub struct Log {
 
 impl Log {
     pub fn new<T: ToString>(name: T) -> Self {
-        Self { name: name.to_string(), entries: Vec::new(), list_state: ListState::default()}
+        Self {
+            name: name.to_string(),
+            entries: Vec::new(),
+            list_state: ListState::default(),
+        }
     }
 
     pub fn name(&self) -> &str {
@@ -58,12 +99,27 @@ impl Log {
         &mut self.list_state
     }
 
-    pub fn append_last(&mut self, data: &str) -> Result<()> {
-        self.entries
+    pub fn append_last(&mut self, input: &str) -> Result<()> {
+        let data = &mut self
+            .entries
             .last_mut()
             .ok_or(anyhow!("Log must have previous entry to append to"))?
-            .data
-            .push_str(data);
+            .data;
+        data.push('\n');
+        data.push_str(input);
         Ok(())
+    }
+
+    pub fn get_list(&self) -> List {
+        List::new(self.entries().iter().map(Entry::as_list_item).collect_vec()).block(
+            Block::new()
+                .borders(Borders::all())
+                .title("Log")
+                .title_alignment(ratatui::layout::Alignment::Center),
+        )
+    }
+
+    pub fn as_list_item(&self) -> ListItem {
+        ListItem::new(self.name())
     }
 }
