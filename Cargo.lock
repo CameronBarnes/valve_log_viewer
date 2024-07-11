@@ -659,6 +659,7 @@ dependencies = [
  "chrono",
  "clap",
  "crossterm",
+ "itertools 0.13.0",
  "logwatcher",
  "once_cell",
  "ratatui",

@@ -1,11 +1,14 @@
-use std::sync::{Arc, Mutex};
+use std::{
+    path::PathBuf,
+    sync::{Arc, Mutex},
+};
 
 use anyhow::{anyhow, Result};
 use chrono::NaiveDate;
 use once_cell::sync::Lazy;
 use regex::Regex;
 
-use crate::types::{Entry, SharedLog};
+use crate::types::{Entry, Log, SharedLog};
 
 static CACHE: Mutex<Vec<Arc<str>>> = Mutex::new(Vec::new());
 
@@ -38,7 +41,7 @@ fn parse(log_line: [&str; 3]) -> Result<Entry> {
         .ok_or(anyhow!("Failed to split timestamp"))?
         .1
         .split_at(11); // This is where we split the time and date
-    // Use regex to parse out the components from the time portion of the timestamp
+                       // Use regex to parse out the components from the time portion of the timestamp
     let (hour, min, sec, micro) = TIME_RE
         .captures(time)
         .ok_or(anyhow!("Failed to parse time"))?
@@ -65,7 +68,7 @@ fn parse(log_line: [&str; 3]) -> Result<Entry> {
 }
 
 // Parses an input line and adds it to the `SharedLog`. Creates a new `Entry` if required or
-// appends the data to the previous entry if appropreate. 
+// appends the data to the previous entry if appropreate.
 pub fn parse_line(log: SharedLog, line: &str) -> Result<()> {
     static RE: Lazy<Regex> = Lazy::new(|| {
         Regex::new(r#"(\w{3} \w{3} \d{2} \d{4} \d{2}:\d{2}:\d{2}.\d+) \[(\w+?)\] - (.+?)$"#)
@@ -79,5 +82,34 @@ pub fn parse_line(log: SharedLog, line: &str) -> Result<()> {
         Ok(())
     } else {
         log.lock().unwrap().append_last(line)
+    }
+}
+
+pub fn parse_file_path<T: Into<PathBuf>>(
+    path: T,
+    extension: &str,
+) -> Result<Vec<(SharedLog, PathBuf)>> {
+    let path: PathBuf = path.into();
+
+    let _ = path.try_exists()?;
+
+    if path.is_file()
+        && path
+            .extension()
+            .is_some_and(|ext| ext.eq_ignore_ascii_case(extension))
+    {
+        Ok(vec![(
+            Arc::new(Mutex::new(Log::new(
+                path.file_name().unwrap().to_string_lossy(),
+            ))),
+            path,
+        )])
+    } else {
+        Ok(path
+            .read_dir()?
+            .flatten()
+            .flat_map(|entry| parse_file_path(entry.path(), extension))
+            .flatten()
+            .collect())
     }
 }

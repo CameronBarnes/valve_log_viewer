@@ -38,6 +38,10 @@ pub struct Log {
 }
 
 impl Log {
+    pub fn new<T: ToString>(name: T) -> Self {
+        Self { name: name.to_string(), entries: Vec::new(), list_state: ListState::default()}
+    }
+
     pub fn name(&self) -> &str {
         &self.name
     }
