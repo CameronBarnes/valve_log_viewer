@@ -13,7 +13,7 @@ use ratatui::{
 
 use anyhow::{anyhow, Result};
 
-use crate::term::app::Dir;
+use crate::term::app::{App, Dir};
 
 pub type SharedLog = Arc<Mutex<Log>>;
 
@@ -38,8 +38,8 @@ impl Entry {
         &self.timestamp
     }
 
-    pub fn log_level(&self) -> &str {
-        self.level.deref()
+    pub fn log_level(&self) -> &Arc<str> {
+        &self.level
     }
 
     pub fn log_data(&self) -> &str {
@@ -112,20 +112,26 @@ impl Log {
         Ok(())
     }
 
-    pub fn get_list(&self, cursor: Dir) -> List {
-        let style = match cursor {
+    pub fn get_list(&self, app: &App) -> List {
+        let style = match app.cursor() {
             Dir::Left => Style::new().reversed().dim(),
             Dir::Right => Style::new().reversed(),
         };
 
-        List::new(self.entries().iter().map(Entry::as_list_item).collect_vec())
-            .block(
-                Block::new()
-                    .borders(Borders::all())
-                    .title("Log")
-                    .title_alignment(ratatui::layout::Alignment::Center),
-            )
-            .highlight_style(style)
+        List::new(
+            self.entries()
+                .iter()
+                .filter(|entry| app.filter(entry))
+                .map(Entry::as_list_item)
+                .collect_vec(),
+        )
+        .block(
+            Block::new()
+                .borders(Borders::all())
+                .title("Log")
+                .title_style(Style::new().bold()),
+        )
+        .highlight_style(style)
     }
 
     pub fn as_list_item(&self) -> ListItem {
