@@ -1,7 +1,4 @@
-use std::{
-    path::PathBuf,
-    thread::spawn,
-};
+use std::{fs::File, io::Read, ops::DerefMut, path::PathBuf, thread::spawn};
 
 use anyhow::Result;
 use clap::Parser;
@@ -28,13 +25,33 @@ pub struct Args {
 fn main() -> Result<()> {
     let args = Args::parse();
 
+    if args.files.is_empty() {
+        println!("Path to log files is required");
+        return Ok(());
+    }
+
     let (logs, paths): (Vec<SharedLog>, Vec<PathBuf>) = args
         .files
         .iter()
-        .flat_map(|path| parse_file_path(path, "txt"))
+        .flat_map(|path| parse_file_path(path, &args.extension))
         .flatten()
+        .map(|(log, path)| {
+            // Read the existing contents of the file into the log
+            let log_new = log.clone();
+            let mut log_mut = log_new.lock().unwrap();
+            let mut output = String::new();
+            File::open(&path)
+                .unwrap()
+                .read_to_string(&mut output)
+                .unwrap();
+            output
+                .lines()
+                .for_each(|line| parse_line(log_mut.deref_mut(), line).unwrap());
+            (log, path)
+        })
         .unzip();
 
+    // Creating new threads to handle the log watching
     let handles = paths
         .into_iter()
         .zip(logs.iter().cloned())
@@ -42,7 +59,7 @@ fn main() -> Result<()> {
             spawn(|| {
                 let mut watcher = LogWatcher::register(path).unwrap();
                 watcher.watch(&mut move |line: String| {
-                    parse_line(log.clone(), &line).unwrap();
+                    parse_line(log.lock().unwrap().deref_mut(), &line).unwrap();
                     logwatcher::LogWatcherAction::None
                 });
             })
@@ -56,7 +73,7 @@ fn main() -> Result<()> {
     let mut tui = Tui::new(terminal, events);
     tui.enter()?;
 
-    let mut app = App::new(Vec::new());
+    let mut app = App::new(logs);
 
     // Do main program loop
     while !app.should_quit {

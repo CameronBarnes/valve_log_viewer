@@ -69,7 +69,7 @@ fn parse(log_line: [&str; 3]) -> Result<Entry> {
 
 // Parses an input line and adds it to the `SharedLog`. Creates a new `Entry` if required or
 // appends the data to the previous entry if appropreate.
-pub fn parse_line(log: SharedLog, line: &str) -> Result<()> {
+pub fn parse_line(log: &mut Log, line: &str) -> Result<()> {
     static RE: Lazy<Regex> = Lazy::new(|| {
         Regex::new(r#"(\w{3} \w{3} \d{2} \d{4} \d{2}:\d{2}:\d{2}.\d+) \[(\w+?)\] - (.+?)$"#)
             .unwrap()
@@ -78,10 +78,10 @@ pub fn parse_line(log: SharedLog, line: &str) -> Result<()> {
     // previous log entry
     if let Some(captures) = RE.captures(line) {
         let entry = parse(captures.extract().1)?;
-        log.lock().unwrap().add_entry(entry);
+        log.add_entry(entry);
         Ok(())
     } else {
-        log.lock().unwrap().append_last(line)
+        log.append_last(line)
     }
 }
 
