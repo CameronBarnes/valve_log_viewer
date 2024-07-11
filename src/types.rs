@@ -6,12 +6,14 @@ use std::{
 use chrono::NaiveDateTime;
 use itertools::Itertools;
 use ratatui::{
-    style::Stylize,
+    style::{Style, Stylize},
     text::{Line, Span, ToSpan},
     widgets::{Block, Borders, List, ListItem, ListState},
 };
 
 use anyhow::{anyhow, Result};
+
+use crate::term::app::Dir;
 
 pub type SharedLog = Arc<Mutex<Log>>;
 
@@ -79,7 +81,7 @@ impl Log {
         Self {
             name: name.to_string(),
             entries: Vec::new(),
-            list_state: ListState::default(),
+            list_state: ListState::default().with_selected(Some(0)),
         }
     }
 
@@ -110,13 +112,20 @@ impl Log {
         Ok(())
     }
 
-    pub fn get_list(&self) -> List {
-        List::new(self.entries().iter().map(Entry::as_list_item).collect_vec()).block(
-            Block::new()
-                .borders(Borders::all())
-                .title("Log")
-                .title_alignment(ratatui::layout::Alignment::Center),
-        )
+    pub fn get_list(&self, cursor: Dir) -> List {
+        let style = match cursor {
+            Dir::Left => Style::new().reversed().dim(),
+            Dir::Right => Style::new().reversed(),
+        };
+
+        List::new(self.entries().iter().map(Entry::as_list_item).collect_vec())
+            .block(
+                Block::new()
+                    .borders(Borders::all())
+                    .title("Log")
+                    .title_alignment(ratatui::layout::Alignment::Center),
+            )
+            .highlight_style(style)
     }
 
     pub fn as_list_item(&self) -> ListItem {

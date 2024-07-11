@@ -2,7 +2,6 @@ use std::{fs::File, io::Read, ops::DerefMut, path::PathBuf, thread::spawn};
 
 use anyhow::Result;
 use clap::Parser;
-use itertools::Itertools;
 use logwatcher::LogWatcher;
 use parser::{parse_file_path, parse_line};
 use ratatui::{backend::CrosstermBackend, Terminal};
@@ -51,19 +50,18 @@ fn main() -> Result<()> {
         .unzip();
 
     // Creating new threads to handle the log watching
-    let handles = paths
+    paths
         .into_iter()
         .zip(logs.iter().cloned())
-        .map(|(path, log)| {
+        .for_each(|(path, log)| {
             spawn(|| {
                 let mut watcher = LogWatcher::register(path).unwrap();
                 watcher.watch(&mut move |line: String| {
                     parse_line(log.lock().unwrap().deref_mut(), &line).unwrap();
                     logwatcher::LogWatcherAction::None
                 });
-            })
-        })
-        .collect_vec();
+            });
+        });
 
     // Init term ui
     let backend = CrosstermBackend::new(std::io::stderr());
@@ -88,9 +86,10 @@ fn main() -> Result<()> {
     // Close down the term ui stuff cleanly
     tui.exit()?;
 
-    handles.into_iter().for_each(|handle| {
+    // We dont want to join these because they wont ever close if we wait for them
+    /*handles.into_iter().for_each(|handle| {
         handle.join().unwrap();
-    });
+    });*/
 
     Ok(())
 }
