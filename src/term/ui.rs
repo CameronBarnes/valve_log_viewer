@@ -1,8 +1,8 @@
-use std::ops::Deref;
+use std::rc::Rc;
 
 use itertools::Itertools;
 use ratatui::{
-    layout::{Constraint, Direction, Layout},
+    layout::{Constraint, Direction, Layout, Rect},
     style::{Style, Stylize},
     text::ToLine,
     widgets::{Block, Borders, Clear, List, Paragraph, Scrollbar, ScrollbarState, Wrap},
@@ -13,7 +13,13 @@ use crate::parser::get_levels;
 
 use super::app::{App, InputMode};
 
-pub fn render(app: &mut App, f: &mut Frame) {
+pub struct Layouts {
+    pub upper: Rc<[Rect]>,
+    pub lower: Rc<[Rect]>,
+    pub vertical: Rc<[Rect]>,
+}
+
+fn build_layout(f: &Frame) -> Layouts {
     let vertical = Layout::new(
         Direction::Vertical,
         [
@@ -27,36 +33,21 @@ pub fn render(app: &mut App, f: &mut Frame) {
         Direction::Horizontal,
         [Constraint::Percentage(20), Constraint::Percentage(80)],
     );
-    let upper_horizontal = horizontal_layout.split(vertical[1]);
-    let lower_horizontal = horizontal_layout.split(vertical[2]);
-
-    app.filter_zone = upper_horizontal[1];
-    app.left_zone = lower_horizontal[0];
-    app.right_zone = lower_horizontal[1];
-
-    // Text filter input area
-    f.render_widget(app.filter_widget(), upper_horizontal[1]);
-    // Display the cursor when we're using the filter widget
-    if app.input_mode == InputMode::Text {
-        f.set_cursor(
-            upper_horizontal[1].x + 1 + app.input.cursor() as u16,
-            upper_horizontal[1].y + 1,
-        );
+    Layouts {
+        upper: horizontal_layout.split(vertical[1]),
+        lower: horizontal_layout.split(vertical[2]),
+        vertical,
     }
+}
 
-    // Help text
-    let help_text = Paragraph::new(
-        "HOME move to top. END move to bottom. RIGHT/LEFT select between log and file menus. CTRL-F to search. SHIFT-F filter by log level. TAB in filer search change method"
-        ).wrap(Wrap{ trim: true }).bold();
-    f.render_widget(help_text, upper_horizontal[0]);
-
+pub fn render_log_files_list(app: &mut App, f: &mut Frame, layouts: &Layouts) {
     // Render list of log files
     let style = match app.cursor() {
         super::app::Dir::Left => Style::new().reversed(),
         super::app::Dir::Right => Style::new().reversed().dim(),
     };
     let arcs = app.logs();
-    let mut log_files = arcs.iter().map(|file| file.lock().unwrap()).collect_vec();
+    let log_files = arcs.iter().map(|file| file.lock().unwrap()).collect_vec();
     let list = List::new(
         log_files
             .iter()
@@ -70,16 +61,21 @@ pub fn render(app: &mut App, f: &mut Frame) {
             .title_style(Style::new().bold()),
     )
     .highlight_style(style);
-    f.render_stateful_widget(list, lower_horizontal[0], &mut app.list_state);
+    f.render_stateful_widget(list, layouts.lower[0], &mut app.list_state);
 
     // Render associated scroll bar
     let mut state =
         ScrollbarState::new(app.logs().len()).position(app.list_state.selected().unwrap());
     f.render_stateful_widget(
         Scrollbar::default().orientation(ratatui::widgets::ScrollbarOrientation::VerticalRight),
-        lower_horizontal[0],
+        layouts.lower[0],
         &mut state,
     );
+}
+
+pub fn render_log_entries(app: &App, f: &mut Frame, layouts: &Layouts) {
+    let arcs = app.logs();
+    let mut log_files = arcs.iter().map(|file| file.lock().unwrap()).collect_vec();
 
     // Render log file entries
     let selected = app
@@ -89,22 +85,52 @@ pub fn render(app: &mut App, f: &mut Frame) {
         .min(log_files.len() - 1);
     let mut list_state = log_files[selected].list_state_mut().to_owned();
     let list = log_files[selected].get_list(app);
-    f.render_stateful_widget(list, lower_horizontal[1], &mut list_state);
+    f.render_stateful_widget(list, layouts.lower[1], &mut list_state);
     *log_files[selected].list_state_mut() = list_state;
 
     // Render associated scroll bar
     let mut state = ScrollbarState::new(log_files[selected].entries().len())
         .position(log_files[selected].list_state_mut().selected().unwrap_or(0));
+    drop(log_files);
     f.render_stateful_widget(
         Scrollbar::default().orientation(ratatui::widgets::ScrollbarOrientation::VerticalRight),
-        lower_horizontal[1],
+        layouts.lower[1],
         &mut state,
     );
+}
+
+#[allow(clippy::cast_possible_truncation)]
+pub fn render(app: &mut App, f: &mut Frame) {
+    let layouts = build_layout(f);
+
+    app.filter_zone = layouts.upper[1];
+    app.left_zone = layouts.lower[0];
+    app.right_zone = layouts.lower[1];
+
+    // Text filter input area
+    f.render_widget(app.filter_widget(), layouts.upper[1]);
+    // Display the cursor when we're using the filter widget
+    if app.input_mode == InputMode::Text {
+        f.set_cursor(
+            layouts.upper[1].x + 1 + app.input.cursor() as u16,
+            layouts.upper[1].y + 1,
+        );
+    }
+
+    // Help text
+    let help_text = Paragraph::new(
+        "HOME move to top. END move to bottom. RIGHT/LEFT select between log and file menus. CTRL-F to search. SHIFT-F filter by log level. TAB in filer search change method"
+        ).wrap(Wrap{ trim: true }).bold();
+    f.render_widget(help_text, layouts.upper[0]);
+
+    render_log_files_list(app, f, &layouts);
+
+    render_log_entries(app, f, &layouts);
 
     // Render title
     f.render_widget(
         Paragraph::new("Valve Log Viewer").bold().centered(),
-        vertical[0],
+        layouts.vertical[0],
     );
 
     // Log level filter popup
@@ -136,7 +162,7 @@ pub fn render(app: &mut App, f: &mut Frame) {
             .iter()
             .map(|level| {
                 let span = level.to_line().centered().black();
-                let span = match (*level).deref() {
+                let span = match &*(*level) {
                     " Warning " => span.on_light_yellow(),
                     "  Error  " => span.on_light_red(),
                     _ => span.on_gray(),

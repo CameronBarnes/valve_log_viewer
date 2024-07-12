@@ -68,8 +68,6 @@ impl App {
         }
     }
 
-    pub fn tick(&self) {}
-
     pub fn logs(&self) -> Vec<SharedLog> {
         self.logs.clone()
     }
@@ -183,7 +181,7 @@ impl App {
         }
     }
 
-    pub(crate) fn cursor(&self) -> Dir {
+    pub const fn cursor(&self) -> Dir {
         self.cursor
     }
 
@@ -201,11 +199,7 @@ impl App {
                         .fuzzy(entry.log_data(), self.input.value(), true)
                         .is_some(),
                     FilterMode::Regex(re) => {
-                        if let Some(re) = re {
-                            re.is_match(entry.log_data())
-                        } else {
-                            true
-                        }
+                        re.as_ref().map_or(true, |re| re.is_match(entry.log_data()))
                     }
                 })
     }

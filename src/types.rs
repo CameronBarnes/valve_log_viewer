@@ -1,7 +1,4 @@
-use std::{
-    ops::Deref,
-    sync::{Arc, Mutex},
-};
+use std::sync::{Arc, Mutex};
 
 use chrono::NaiveDateTime;
 use itertools::Itertools;
@@ -19,7 +16,7 @@ pub type SharedLog = Arc<Mutex<Log>>;
 
 fn log_level_to_span(level: &Arc<str>) -> Span {
     let span = level.to_span();
-    match level.deref() {
+    match &**level {
         " Warning " => span.black().on_light_yellow(),
         "  Error  " => span.black().on_light_red(),
         _ => span.on_dark_gray(),
@@ -34,11 +31,11 @@ pub struct Entry {
 }
 
 impl Entry {
-    pub fn timestamp(&self) -> &NaiveDateTime {
+    pub const fn timestamp(&self) -> &NaiveDateTime {
         &self.timestamp
     }
 
-    pub fn log_level(&self) -> &Arc<str> {
+    pub const fn log_level(&self) -> &Arc<str> {
         &self.level
     }
 
@@ -77,7 +74,7 @@ pub struct Log {
 }
 
 impl Log {
-    pub fn new<T: ToString>(name: T) -> Self {
+    pub fn new<T: ToString>(name: &T) -> Self {
         Self {
             name: name.to_string(),
             entries: Vec::new(),
@@ -105,7 +102,7 @@ impl Log {
         let data = &mut self
             .entries
             .last_mut()
-            .ok_or(anyhow!("Log must have previous entry to append to"))?
+            .ok_or_else(|| anyhow!("Log must have previous entry to append to"))?
             .data;
         data.push('\n');
         data.push_str(input);

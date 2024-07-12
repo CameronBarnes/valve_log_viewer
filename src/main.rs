@@ -1,4 +1,4 @@
-use std::{fs::File, io::Read, ops::DerefMut, path::PathBuf, thread::spawn};
+use std::{fs::File, io::Read, path::PathBuf, thread::spawn};
 
 use anyhow::Result;
 use clap::Parser;
@@ -49,7 +49,7 @@ fn main() -> Result<()> {
                 .unwrap();
             output
                 .lines()
-                .for_each(|line| parse_line(log_mut.deref_mut(), line).unwrap());
+                .for_each(|line| parse_line(&mut log_mut, line).unwrap());
             (log, path)
         })
         .unzip();
@@ -62,7 +62,7 @@ fn main() -> Result<()> {
             spawn(|| {
                 let mut watcher = LogWatcher::register(path).unwrap();
                 watcher.watch(&mut move |line: String| {
-                    parse_line(log.lock().unwrap().deref_mut(), &line).unwrap();
+                    parse_line(&mut log.lock().unwrap(), &line).unwrap();
                     logwatcher::LogWatcherAction::None
                 });
             });
@@ -84,7 +84,6 @@ fn main() -> Result<()> {
         match tui.events.next().unwrap() {
             term::event::Event::Key(key_event) => handle_keys(&mut app, key_event),
             term::event::Event::Mouse(mouse_event) => handle_mouse(&mut app, mouse_event),
-            term::event::Event::Tick => app.tick(),
             _ => {}
         }
     }
