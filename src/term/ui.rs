@@ -5,7 +5,7 @@ use ratatui::{
     layout::{Constraint, Direction, Layout},
     style::{Style, Stylize},
     text::ToLine,
-    widgets::{Block, Borders, Clear, List, Paragraph, Wrap},
+    widgets::{Block, Borders, Clear, List, Paragraph, Scrollbar, ScrollbarState, Wrap},
     Frame,
 };
 
@@ -68,6 +68,15 @@ pub fn render(app: &mut App, f: &mut Frame) {
     .highlight_style(style);
     f.render_stateful_widget(list, lower_horizontal[0], &mut app.list_state);
 
+    // Render associated scroll bar
+    let mut state = ScrollbarState::new(app.logs().len())
+        .position(app.list_state.selected().unwrap());
+    f.render_stateful_widget(
+        Scrollbar::default().orientation(ratatui::widgets::ScrollbarOrientation::VerticalRight),
+        lower_horizontal[0],
+        &mut state,
+    );
+
     // Render log file entries
     let selected = app
         .list_state
@@ -78,6 +87,15 @@ pub fn render(app: &mut App, f: &mut Frame) {
     let list = log_files[selected].get_list(app);
     f.render_stateful_widget(list, lower_horizontal[1], &mut list_state);
     *log_files[selected].list_state_mut() = list_state;
+
+    // Render associated scroll bar
+    let mut state = ScrollbarState::new(log_files[selected].entries().len())
+        .position(log_files[selected].list_state_mut().selected().unwrap());
+    f.render_stateful_widget(
+        Scrollbar::default().orientation(ratatui::widgets::ScrollbarOrientation::VerticalRight),
+        lower_horizontal[1],
+        &mut state,
+    );
 
     // Render title
     f.render_widget(

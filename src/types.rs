@@ -132,6 +132,7 @@ impl Log {
                 .title_style(Style::new().bold()),
         )
         .highlight_style(style)
+        .scroll_padding(1)
     }
 
     pub fn as_list_item(&self) -> ListItem {
