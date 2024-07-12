@@ -1,5 +1,5 @@
-use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
-use ratatui::widgets::ListState;
+use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEvent};
+use ratatui::{layout::Position, widgets::ListState};
 use tui_input::backend::crossterm::EventHandler;
 
 use super::app::{App, FilterMode, InputMode};
@@ -57,5 +57,52 @@ pub fn handle_keys(app: &mut App, key_event: KeyEvent) {
                 app.update_regex();
             }
         },
+    }
+}
+
+pub fn handle_mouse(app: &mut App, mouse_event: MouseEvent) {
+    let position = Position {
+        x: mouse_event.column,
+        y: mouse_event.row,
+    };
+    match mouse_event.kind {
+        crossterm::event::MouseEventKind::Down(button) => {
+            if button == MouseButton::Left {
+                if app.left_zone.contains(position) {
+                    app.input_mode = InputMode::Normal;
+                    app.left();
+                } else if app.right_zone.contains(position) {
+                    app.input_mode = InputMode::Normal;
+                    app.right();
+                } else if app.filter_zone.contains(position) {
+                    app.input_mode = InputMode::Text;
+                }
+            }
+        }
+        crossterm::event::MouseEventKind::ScrollDown => {
+            if matches!(app.input_mode, InputMode::Normal) {
+                app.down();
+            } else {
+                match app.filter_mode {
+                    FilterMode::Exact => app.filter_mode = FilterMode::Fuzzy,
+                    FilterMode::Fuzzy => app.filter_mode = FilterMode::Regex(None),
+                    FilterMode::Regex(_) => app.filter_mode = FilterMode::Exact,
+                }
+                app.update_regex();
+            }
+        }
+        crossterm::event::MouseEventKind::ScrollUp => {
+            if matches!(app.input_mode, InputMode::Normal) {
+                app.up();
+            } else {
+                match app.filter_mode {
+                    FilterMode::Exact => app.filter_mode = FilterMode::Regex(None),
+                    FilterMode::Fuzzy => app.filter_mode = FilterMode::Exact,
+                    FilterMode::Regex(_) => app.filter_mode = FilterMode::Fuzzy,
+                }
+                app.update_regex();
+            }
+        }
+        _ => {}
     }
 }

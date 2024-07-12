@@ -5,7 +5,12 @@ use clap::Parser;
 use logwatcher::LogWatcher;
 use parser::{parse_file_path, parse_line};
 use ratatui::{backend::CrosstermBackend, Terminal};
-use term::{app::App, event::EventHandler, tui::Tui, update::handle_keys};
+use term::{
+    app::App,
+    event::EventHandler,
+    tui::Tui,
+    update::{handle_keys, handle_mouse},
+};
 use types::SharedLog;
 
 mod parser;
@@ -76,15 +81,16 @@ fn main() -> Result<()> {
     while !app.should_quit {
         tui.draw(&mut app)?;
 
-        match tui.events.next()? {
+        match tui.events.next().unwrap() {
             term::event::Event::Key(key_event) => handle_keys(&mut app, key_event),
+            term::event::Event::Mouse(mouse_event) => handle_mouse(&mut app, mouse_event),
             term::event::Event::Tick => app.tick(),
             _ => {}
         }
     }
 
     // Close down the term ui stuff cleanly
-    tui.exit()?;
+    tui.exit().unwrap();
 
     // We dont want to join these because they wont ever close if we wait for them
     /*handles.into_iter().for_each(|handle| {

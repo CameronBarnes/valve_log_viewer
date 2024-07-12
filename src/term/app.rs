@@ -3,6 +3,7 @@ use std::sync::Arc;
 use fuzzy_matcher::skim::SkimMatcherV2;
 use once_cell::sync::Lazy;
 use ratatui::{
+    layout::Rect,
     style::Stylize,
     widgets::{Block, Borders, ListState, Paragraph},
 };
@@ -44,6 +45,9 @@ pub struct App {
     pub filter_mode: FilterMode,
     pub input_mode: InputMode,
     pub input: Input,
+    pub filter_zone: Rect,
+    pub left_zone: Rect,
+    pub right_zone: Rect,
 }
 
 impl App {
@@ -58,6 +62,9 @@ impl App {
             filter_mode: FilterMode::Exact,
             input_mode: InputMode::Normal,
             input: Input::default(),
+            filter_zone: Rect::default(),
+            left_zone: Rect::default(),
+            right_zone: Rect::default(),
         }
     }
 

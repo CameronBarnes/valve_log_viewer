@@ -30,6 +30,10 @@ pub fn render(app: &mut App, f: &mut Frame) {
     let upper_horizontal = horizontal_layout.split(vertical[1]);
     let lower_horizontal = horizontal_layout.split(vertical[2]);
 
+    app.filter_zone = upper_horizontal[1];
+    app.left_zone = lower_horizontal[0];
+    app.right_zone = lower_horizontal[1];
+
     // Text filter input area
     f.render_widget(app.filter_widget(), upper_horizontal[1]);
     // Display the cursor when we're using the filter widget
@@ -42,7 +46,7 @@ pub fn render(app: &mut App, f: &mut Frame) {
 
     // Help text
     let help_text = Paragraph::new(
-        "Home to move to the top. End to move to bottom. Right and left to select between the log and file menus. CTRL-F to search. SHIFT-F to filter by log level."
+        "HOME move to top. END move to bottom. RIGHT/LEFT select between log and file menus. CTRL-F to search. SHIFT-F filter by log level. TAB in filer search change method"
         ).wrap(Wrap{ trim: true }).bold();
     f.render_widget(help_text, upper_horizontal[0]);
 
@@ -69,8 +73,8 @@ pub fn render(app: &mut App, f: &mut Frame) {
     f.render_stateful_widget(list, lower_horizontal[0], &mut app.list_state);
 
     // Render associated scroll bar
-    let mut state = ScrollbarState::new(app.logs().len())
-        .position(app.list_state.selected().unwrap());
+    let mut state =
+        ScrollbarState::new(app.logs().len()).position(app.list_state.selected().unwrap());
     f.render_stateful_widget(
         Scrollbar::default().orientation(ratatui::widgets::ScrollbarOrientation::VerticalRight),
         lower_horizontal[0],
@@ -90,7 +94,7 @@ pub fn render(app: &mut App, f: &mut Frame) {
 
     // Render associated scroll bar
     let mut state = ScrollbarState::new(log_files[selected].entries().len())
-        .position(log_files[selected].list_state_mut().selected().unwrap());
+        .position(log_files[selected].list_state_mut().selected().unwrap_or(0));
     f.render_stateful_widget(
         Scrollbar::default().orientation(ratatui::widgets::ScrollbarOrientation::VerticalRight),
         lower_horizontal[1],
