@@ -18,18 +18,21 @@ pub fn render(app: &mut App, f: &mut Frame) {
         Direction::Vertical,
         [
             Constraint::Length(1),
-            Constraint::Length(1),
-            Constraint::Length(1),
+            Constraint::Length(3),
             Constraint::Min(0),
             Constraint::Length(1),
         ],
     )
     .split(f.size());
-    let horizontal = Layout::new(
+    let horizontal_layout = Layout::new(
         Direction::Horizontal,
         [Constraint::Percentage(20), Constraint::Percentage(80)],
-    )
-    .split(vertical[3]);
+    );
+    let upper_horizontal = horizontal_layout.split(vertical[1]);
+    let lower_horizontal = horizontal_layout.split(vertical[2]);
+
+    // Text filter input area
+    f.render_widget(app.filter_widget(), upper_horizontal[1]);
 
     // Render list of log files
     let style = match app.cursor() {
@@ -44,9 +47,14 @@ pub fn render(app: &mut App, f: &mut Frame) {
             .map(|file| file.as_list_item())
             .collect_vec(),
     )
-    .block(Block::new().borders(Borders::all()).title("Files").title_style(Style::new().bold()))
+    .block(
+        Block::new()
+            .borders(Borders::all())
+            .title("Files")
+            .title_style(Style::new().bold()),
+    )
     .highlight_style(style);
-    f.render_stateful_widget(list, horizontal[0], &mut app.list_state);
+    f.render_stateful_widget(list, lower_horizontal[0], &mut app.list_state);
 
     // Render log file entries
     let selected = app
@@ -56,7 +64,7 @@ pub fn render(app: &mut App, f: &mut Frame) {
         .min(log_files.len() - 1);
     let mut list_state = log_files[selected].list_state_mut().to_owned();
     let list = log_files[selected].get_list(app);
-    f.render_stateful_widget(list, horizontal[1], &mut list_state);
+    f.render_stateful_widget(list, lower_horizontal[1], &mut list_state);
     *log_files[selected].list_state_mut() = list_state;
 
     // Render title
