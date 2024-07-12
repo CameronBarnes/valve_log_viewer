@@ -230,7 +230,7 @@ impl App {
 
     pub fn update_regex(&mut self) {
         if matches!(self.filter_mode, FilterMode::Regex(_)) {
-            if !self.input.value().is_empty() {
+            if self.input.value().is_empty() {
                 self.filter_mode = FilterMode::Regex(None);
             } else {
                 self.filter_mode = FilterMode::Regex(Regex::new(self.input.value()).ok());

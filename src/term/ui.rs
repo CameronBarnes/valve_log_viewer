@@ -5,13 +5,13 @@ use ratatui::{
     layout::{Constraint, Direction, Layout},
     style::{Style, Stylize},
     text::ToLine,
-    widgets::{Block, Borders, Clear, List, Paragraph},
+    widgets::{Block, Borders, Clear, List, Paragraph, Wrap},
     Frame,
 };
 
 use crate::parser::get_levels;
 
-use super::app::App;
+use super::app::{App, InputMode};
 
 pub fn render(app: &mut App, f: &mut Frame) {
     let vertical = Layout::new(
@@ -20,7 +20,6 @@ pub fn render(app: &mut App, f: &mut Frame) {
             Constraint::Length(1),
             Constraint::Length(3),
             Constraint::Min(0),
-            Constraint::Length(1),
         ],
     )
     .split(f.size());
@@ -33,6 +32,19 @@ pub fn render(app: &mut App, f: &mut Frame) {
 
     // Text filter input area
     f.render_widget(app.filter_widget(), upper_horizontal[1]);
+    // Display the cursor when we're using the filter widget
+    if app.input_mode == InputMode::Text {
+        f.set_cursor(
+            upper_horizontal[1].x + 1 + app.input.cursor() as u16,
+            upper_horizontal[1].y + 1,
+        );
+    }
+
+    // Help text
+    let help_text = Paragraph::new(
+        "Home to move to the top. End to move to bottom. Right and left to select between the log and file menus. CTRL-F to search. SHIFT-F to filter by log level."
+        ).wrap(Wrap{ trim: true }).bold();
+    f.render_widget(help_text, upper_horizontal[0]);
 
     // Render list of log files
     let style = match app.cursor() {
